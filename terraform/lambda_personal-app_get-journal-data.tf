@@ -172,25 +172,9 @@ resource "aws_codepipeline" "lambda_personal-app_get-journal-data_pipeline_dev" 
       provider         = "CodeBuild"
       version          = "1"
       input_artifacts  = ["source_output"]
-      output_artifacts = ["build_output"]
+
       configuration = {
         ProjectName = aws_codebuild_project.lambda_personal-app_get-journal-data_build.name
-      }
-    }
-  }
-
-  stage {
-    name = "Deploy"
-    action {
-      name            = "DeployToLambda"
-      category        = "Deploy"
-      owner           = "AWS"
-      provider        = "Lambda"
-      version         = "1"
-      input_artifacts = ["build_output"] # CORREGIDO
-      configuration = {
-        FunctionName = aws_lambda_function.lambda_personal-app_get-journal-data_dev.function_name
-        # Línea de ImageURI eliminada
       }
     }
   }
@@ -232,7 +216,7 @@ resource "aws_codebuild_project" "lambda_personal-app_get-journal-data_build" {
 
   source {
     type = "CODEPIPELINE"
-    
+
     buildspec = <<-EOT
       version: 0.2
       
@@ -242,21 +226,21 @@ resource "aws_codebuild_project" "lambda_personal-app_get-journal-data_build" {
             - echo "Iniciando sesión en Amazon ECR..."
             - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO_SNAPSHOTS
             - export LAMBDA_VERSION=$(grep "version =" config.toml | cut -d '"' -f 2)
-            - export IMAGE_TAG=$${LAMBDA_NAME_PREFIX}-dev-$${LAMBDA_VERSION}
+            - export IMAGE_TAG=$${LAMBDA_NAME_PREFIX}_$${LAMBDA_VERSION}
         build:
           commands:
             - echo "Construyendo la imagen Docker con la etiqueta $IMAGE_TAG..."
-            - docker build -t $ECR_REPO_SNAPSHOTS:$IMAGE_TAG .
+            - docker build -t $${ECR_REPO_SNAPSHOTS}:$${IMAGE_TAG} .
         post_build:
           commands:
             - echo "Subiendo la imagen a ECR..."
-            - docker push $ECR_REPO_SNAPSHOTS:$IMAGE_TAG
-            - echo "Creando el archivo de definición de imagen para el despliegue..."
-            - printf '[{"name":"%s","imageUri":"%s"}]' "$LAMBDA_FUNCTION_NAME" "$ECR_REPO_SNAPSHOTS:$IMAGE_TAG" > imagedefinitions.json
-      
-      artifacts:
-        files:
-          - imagedefinitions.json
+            - docker push $${ECR_REPO_SNAPSHOTS}:$${IMAGE_TAG}
+            - echo "Actualizando la función Lambda..."
+            - |
+              aws lambda update-function-code \
+                --function-name $${LAMBDA_FUNCTION_NAME} \
+                --image-uri $${ECR_REPO_SNAPSHOTS}:$${IMAGE_TAG}
+            - echo "Lambda actualizada exitosamente"
     EOT
   }
 }
