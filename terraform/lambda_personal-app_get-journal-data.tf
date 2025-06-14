@@ -1,8 +1,12 @@
+locals {
+  lambda_name = "lambda_personal-app_get-journal-data"
+}
+
 # --- Rol de IAM para la Lambda 'lambda_personal-app_get-journal-data' ---
 resource "aws_iam_role" "lambda_personal-app_get-journal-data_role" {
-  name               = "lambda_personal-app_get-journal-data_role"
+  name = "lambda_personal-app_get-journal-data_role"
   assume_role_policy = jsonencode({
-    Version   = "2012-10-17",
+    Version = "2012-10-17",
     Statement = [{
       Action    = "sts:AssumeRole",
       Effect    = "Allow",
@@ -30,9 +34,9 @@ resource "aws_lambda_function" "lambda_personal-app_get-journal-data_dev" {
 
 # 1. Roles para Pipeline y Build
 resource "aws_iam_role" "codepipeline_role" {
-  name               = "lambda_personal-app_get-journal-data_codepipeline-role"
+  name = "lambda_personal-app_get-journal-data_codepipeline-role"
   assume_role_policy = jsonencode({
-    Version   = "2012-10-17",
+    Version = "2012-10-17",
     Statement = [{
       Action    = "sts:AssumeRole",
       Effect    = "Allow",
@@ -42,9 +46,9 @@ resource "aws_iam_role" "codepipeline_role" {
 }
 
 resource "aws_iam_role" "codebuild_role" {
-  name               = "lambda_personal-app_get-journal-data_codebuild-role"
+  name = "lambda_personal-app_get-journal-data_codebuild-role"
   assume_role_policy = jsonencode({
-    Version   = "2012-10-17",
+    Version = "2012-10-17",
     Statement = [{
       Action    = "sts:AssumeRole",
       Effect    = "Allow",
@@ -59,12 +63,37 @@ resource "aws_iam_policy" "pipeline_policy" {
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
+      # --- Permisos para que CodePipeline inicie CodeBuild ---
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "codebuild:StartBuild",
+          "codebuild:StopBuild",
+          "codebuild:BatchGetBuilds"
+        ],
+        "Resource" : aws_codebuild_project.lambda_personal-app_get-journal-data_build.arn
+      },
+      # --- Permisos para S3 (NUEVO) ---
+      {
+        Effect = "Allow",
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:GetObjectVersion",
+          "s3:ListBucket"
+        ],
+        Resource = [
+          aws_s3_bucket.codepipeline_artifacts.arn,
+          "${aws_s3_bucket.codepipeline_artifacts.arn}/*"
+        ]
+      },
+      # --- Permisos para CodeStar Connections ---
       {
         Effect   = "Allow",
         Action   = ["codestar-connections:UseConnection"],
-        Resource = "arn:aws:codeconnections:eu-west-1:590184031333:connection/7206e653-7f3b-4ca8-bbb3-8ff36867cffa"
+        Resource = "arn:aws:codeconnections:eu-west-1:590184031333:connection/4a1b0335-5d89-4d95-82fa-926515d75a62"
       },
-      # Permisos para que CodeBuild pueda subir imágenes a AMBOS ECRs
+      # --- Permisos para ECR (para CodeBuild) ---
       {
         Effect = "Allow",
         Action = [
@@ -77,7 +106,7 @@ resource "aws_iam_policy" "pipeline_policy" {
         ],
         Resource = "*"
       },
-      # Permisos para escribir logs
+      # --- Permisos para Logs (para CodeBuild) ---
       {
         Effect = "Allow",
         Action = [
@@ -87,7 +116,7 @@ resource "aws_iam_policy" "pipeline_policy" {
         ],
         Resource = "arn:aws:logs:*:*:*"
       },
-      # Permisos para que CodePipeline actualice la Lambda
+      # --- Permisos para Lambda (para la fase de Deploy) ---
       {
         Effect   = "Allow",
         Action   = ["lambda:UpdateFunctionCode"],
@@ -127,7 +156,7 @@ resource "aws_codepipeline" "lambda_personal-app_get-journal-data_pipeline_dev" 
       version          = "1"
       output_artifacts = ["source_output"]
       configuration = {
-        ConnectionArn    = "arn:aws:codeconnections:eu-west-1:590184031333:connection/7206e653-7f3b-4ca8-bbb3-8ff36867cffa"
+        ConnectionArn    = "arn:aws:codeconnections:eu-west-1:590184031333:connection/4a1b0335-5d89-4d95-82fa-926515d75a62"
         FullRepositoryId = "iTorrente99/lambda_personal-app_get-journal-data"
         BranchName       = "dev"
       }
@@ -192,21 +221,28 @@ resource "aws_codebuild_project" "lambda_personal-app_get-journal-data_build" {
     }
     # Añadimos una variable de entorno para el nombre de la función Lambda
     environment_variable {
-      name = "LAMBDA_FUNCTION_NAME"
+      name  = "LAMBDA_FUNCTION_NAME"
       value = aws_lambda_function.lambda_personal-app_get-journal-data_dev.function_name
+    }
+    environment_variable {
+      name  = "LAMBDA_NAME_PREFIX"
+      value = local.lambda_name
     }
   }
 
   source {
     type = "CODEPIPELINE"
+    
     buildspec = <<-EOT
       version: 0.2
+      
       phases:
         pre_build:
-          command:
+          commands:
             - echo "Iniciando sesión en Amazon ECR..."
             - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO_SNAPSHOTS
-            - export IMAGE_TAG=dev-$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+            - export LAMBDA_VERSION=$(grep "version =" config.toml | cut -d '"' -f 2)
+            - export IMAGE_TAG=$${LAMBDA_NAME_PREFIX}-dev-$${LAMBDA_VERSION}
         build:
           commands:
             - echo "Construyendo la imagen Docker con la etiqueta $IMAGE_TAG..."
@@ -217,6 +253,7 @@ resource "aws_codebuild_project" "lambda_personal-app_get-journal-data_build" {
             - docker push $ECR_REPO_SNAPSHOTS:$IMAGE_TAG
             - echo "Creando el archivo de definición de imagen para el despliegue..."
             - printf '[{"name":"%s","imageUri":"%s"}]' "$LAMBDA_FUNCTION_NAME" "$ECR_REPO_SNAPSHOTS:$IMAGE_TAG" > imagedefinitions.json
+      
       artifacts:
         files:
           - imagedefinitions.json
