@@ -44,13 +44,21 @@ resource "aws_iam_role_policy" "inline_policy" {
   policy = var.inline_policy
 }
 
+data "aws_ecr_image" "latest_image" {
+  # Solo ejecuta este data source si se proporciona un nombre de repositorio
+  count = var.ecr_repository_name != null ? 1 : 0
+  
+  repository_name = var.ecr_repository_name
+  image_tag       = "latest-dev" # El tag que tu pipeline siempre actualiza
+}
+
 # Función Lambda
 resource "aws_lambda_function" "function" {
   function_name = "${var.function_base_name}_${var.environment}"
   role          = aws_iam_role.lambda_role.arn
   
   package_type = "Image"
-  image_uri    = var.image_uri
+  image_uri = var.ecr_repository_name != null && length(data.aws_ecr_image.latest_image) > 0 ? data.aws_ecr_image.latest_image[0].image_uri : var.image_uri
   
   timeout     = var.timeout
   memory_size = var.memory_size

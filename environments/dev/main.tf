@@ -1,56 +1,40 @@
-# environments/dev/main.tf
-# Definición de recursos para el ambiente DEV
+# Definición DINÁMICA de recursos para el ambiente DEV
 
-# Lambda function para get-journal-data
-module "lambda_get_journal_data" {
-  source = "../../modules/lambda"
+# Bucle que crea la Lambda y su Pipeline para cada entrada en lambdas_config
+module "lambda_service" {
+  for_each = local.lambdas_config # ¡La magia está aquí!
+
+  source = "../../modules/lambda_service" # Crearemos este nuevo módulo en el siguiente paso
+
+  # Parámetros generales del entorno
+  environment           = var.environment
+  github_connection_arn = var.github_connection_arn
+  github_branch         = var.github_branch # Asumimos que la rama es la misma para todas las lambdas del entorno
+  common_tags           = local.common_tags
+  ecr_snapshots_url     = local.ecr_snapshots_url
+  ecr_snapshots_name    = data.terraform_remote_state.global_ecr.outputs.snapshots_repository_name
+
+  # Parámetros específicos de cada lambda, leídos del bucle
+  function_base_name    = each.value.base_name
+  github_repository     = each.value.github_repo
   
-  function_base_name = local.lambda_base_name
-  environment        = var.environment
-  
-  # Usar una imagen temporal base de Python 3.11
-  # El pipeline actualizará esto automáticamente en el primer despliegue
-  image_uri = "${local.ecr_snapshots_url}:initial"
-  
-  timeout     = var.lambda_timeout
-  memory_size = var.lambda_memory_size
-  
-  environment_variables = {
-    LOG_LEVEL   = "INFO"
-    ENVIRONMENT = var.environment
-  }
-  
-  log_retention_days = 7
-  common_tags        = local.common_tags
+  # Usar valores específicos si existen, si no, los defaults del entorno
+  lambda_timeout        = lookup(each.value, "timeout", var.lambda_timeout)
+  lambda_memory_size    = lookup(each.value, "memory_size", var.lambda_memory_size)
 }
 
-# Pipeline CI/CD para la Lambda
-module "pipeline_get_journal_data" {
-  source = "../../modules/pipeline"
-  
-  pipeline_name = local.lambda_base_name
-  environment   = var.environment
-  
-  # Configuración de GitHub
-  github_connection_arn = var.github_connection_arn
-  github_repository     = var.github_repository
-  github_branch         = var.github_branch
-  
-  # Configuración de ECR y Lambda
-  ecr_repository_url   = local.ecr_snapshots_url
-  lambda_function_name = module.lambda_get_journal_data.function_name
-  lambda_function_arn  = module.lambda_get_journal_data.function_arn
-  
-  # Configuración de build
-  build_compute_type = "BUILD_GENERAL1_SMALL"
-  build_image        = "aws/codebuild/standard:5.0"
-  buildspec_content  = data.local_file.buildspec.content
-  
-  # Variables de entorno adicionales para el build
-  build_environment_variables = {
-    ECR_REPO_SNAPSHOTS = local.ecr_snapshots_url
-    LAMBDA_NAME_PREFIX = local.lambda_base_name
-  }
-  
+module "api_gateway" {
+  source = "../../modules/api_gateway"
+
+  api_name    = "${var.project_name}-api" # ej: personal-app-api
+  environment = var.environment          # ej: dev
   common_tags = local.common_tags
+
+  # Construimos el mapa de integraciones dinámicamente a partir de nuestras lambdas
+  lambda_integrations = {
+    for key, config in local.lambdas_config : key => {
+      lambda_invoke_arn   = module.lambda_service[key].invoke_arn
+      lambda_function_arn = module.lambda_service[key].function_arn
+    }
+  }
 }

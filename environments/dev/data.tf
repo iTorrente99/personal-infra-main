@@ -14,8 +14,3 @@ data "terraform_remote_state" "global_ecr" {
     region = "eu-west-1"
   }
 }
-
-# Leer el contenido del buildspec.yml
-data "local_file" "buildspec" {
-  filename = "${path.module}/buildspec.yml"
-}

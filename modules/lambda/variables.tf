@@ -56,6 +56,12 @@ variable "log_retention_days" {
   default     = 7
 }
 
+variable "ecr_repository_name" {
+  description = "El nombre del repositorio ECR donde reside la imagen (ej: personal-app-snapshots)"
+  type        = string
+  default     = null # Opcional por ahora
+}
+
 variable "common_tags" {
   description = "Tags comunes para todos los recursos"
   type        = map(string)
