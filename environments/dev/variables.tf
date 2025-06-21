@@ -48,3 +48,41 @@ variable "lambda_memory_size" {
   type        = number
   default     = 128
 }
+
+# ===== VARIABLES PARA AMPLIFY (FRONTEND) =====
+
+variable "frontend_github_repository" {
+  description = "URL del repositorio de GitHub del frontend"
+  type        = string
+  default     = "https://github.com/iTorrente99/personal-app-frontend"
+}
+
+variable "frontend_branch_name" {
+  description = "Branch del frontend a desplegar"
+  type        = string
+  default     = "master"
+}
+
+variable "frontend_custom_domain" {
+  description = "Dominio personalizado para el frontend (opcional)"
+  type        = string
+  default     = null # Cambia a "tudominio.com" cuando lo tengas
+}
+
+variable "frontend_framework" {
+  description = "Framework del frontend (react, vite, nextjs, etc.)"
+  type        = string
+  default     = "vite"
+  
+  validation {
+    condition     = contains(["react", "vite", "nextjs", "vue", "angular"], var.frontend_framework)
+    error_message = "El framework debe ser uno de: react, vite, nextjs, vue, angular"
+  }
+}
+
+variable "frontend_basic_auth_password" {
+  description = "Contraseña para autenticación básica en entorno dev"
+  type        = string
+  sensitive   = true
+  default     = "changeme123!" # Cambia esto en terraform.tfvars
+}

@@ -1,100 +1,201 @@
-# Infraestructura Serverless para "Personal App"
+# 🚀 Personal App - Infraestructura como Código
 
-![Terraform](https://img.shields.io/badge/Terraform-%237B42BC.svg?style=for-the-badge&logo=terraform&logoColor=white)
-![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white)
-![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
-![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+![Terraform](https://img.shields.io/badge/Terraform-7B42BC?style=for-the-badge&logo=terraform&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-232F3E?style=for-the-badge&logo=amazon-aws&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
 
-Este repositorio contiene la Infraestructura como Código (IaC) para una arquitectura de backend serverless en AWS. Utiliza **Terraform** para definir y gestionar un sistema de microservicios escalable, con un **pipeline de CI/CD completamente automatizado** para cada función.
+[![Infrastructure Tests](https://img.shields.io/badge/Infrastructure-Validated-success)](https://github.com/iTorrente99/personal-infra-main)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## ✨ Visión General de la Arquitectura
+> Infraestructura completa para una aplicación web moderna con arquitectura serverless, CI/CD automatizado y dominio personalizado.
 
-El sistema está diseñado para que los desarrolladores puedan desplegar nuevas versiones de sus microservicios simplemente haciendo `git push`. Terraform se encarga de crear y mantener la infraestructura subyacente, mientras que AWS CodePipeline automatiza el ciclo de vida del despliegue del código.
+## 📋 Tabla de Contenidos
 
-### Flujo de Despliegue Automatizado
+- [Visión General](#-visión-general)
+- [Arquitectura](#-arquitectura)
+- [Stack Tecnológico](#-stack-tecnológico)
+- [Estructura del Proyecto](#-estructura-del-proyecto)
+- [Prerrequisitos](#-prerrequisitos)
+- [Guía de Instalación](#-guía-de-instalación)
+- [Uso](#-uso)
+- [Configuración del Dominio](#-configuración-del-dominio)
+- [Desarrollo](#-desarrollo)
+- [CI/CD](#-cicd)
+- [Monitoreo y Logs](#-monitoreo-y-logs)
+- [Troubleshooting](#-troubleshooting)
+- [Mejores Prácticas](#-mejores-prácticas)
 
-El proceso desde el código hasta el despliegue es el siguiente:
+## 🌟 Visión General
 
-1.  **Commit a GitHub:** Un desarrollador sube cambios a un repositorio de un microservicio.
-2.  **Activación del Pipeline:** **AWS CodePipeline** detecta el `push` y se activa automáticamente.
-3.  **Construcción de la Imagen:** **AWS CodeBuild** toma el código fuente, construye una imagen Docker y la etiqueta con una versión.
-4.  **Publicación en ECR:** La nueva imagen se sube a **Amazon ECR** (Elastic Container Registry).
-5.  **Actualización de la Lambda:** CodeBuild actualiza la función **AWS Lambda** para que utilice la nueva imagen.
-6.  **Disponibilidad en API Gateway:** La nueva versión de la Lambda está inmediatamente disponible a través de su endpoint en **API Gateway**.
+Este repositorio contiene toda la Infraestructura como Código (IaC) para desplegar una aplicación web completa en AWS. La arquitectura incluye:
 
+- **Backend**: Microservicios serverless con AWS Lambda
+- **Frontend**: Aplicación React desplegada en AWS Amplify
+- **API**: Gateway REST con endpoints dinámicos
+- **CI/CD**: Pipelines automatizados para cada servicio
+- **Dominio**: HTTPS automático con dominio personalizado
+
+### Características Principales
+
+✅ **Despliegue Automatizado**: Push to deploy para frontend y backend  
+✅ **Escalabilidad**: Arquitectura serverless que escala automáticamente  
+✅ **Modular**: Añadir nuevos servicios con pocas líneas de código  
+✅ **Seguro**: HTTPS por defecto, autenticación básica en desarrollo  
+✅ **Costo-Eficiente**: Paga solo por lo que usas  
+
+## 🏗️ Arquitectura
+
+```mermaid
+graph TB
+    subgraph "Frontend"
+        A[Usuario] -->|HTTPS| B[Route53/CloudFront]
+        B --> C[AWS Amplify]
+        C --> D[React App]
+    end
+    
+    subgraph "Backend"
+        D -->|API Calls| E[API Gateway]
+        E --> F[Lambda Functions]
+        F --> G[ECR Images]
+    end
+    
+    subgraph "CI/CD"
+        H[GitHub] -->|Push| I[CodePipeline]
+        I --> J[CodeBuild]
+        J --> G
+        J --> F
+    end
+    
+    subgraph "Monitoring"
+        F --> K[CloudWatch Logs]
+        C --> L[Amplify Console]
+    end
 ```
-+-------------------+      +----------------------+      +---------------------------+
-|                   |      |                      |      |                           |
-|  Desarrollador    +----->+  CI/CD (AWS)         +----->+  Infraestructura de App   |
-|  (git push)       |      |                      |      |  (API Gateway -> Lambda)  |
-|                   |      |                      |      |                           |
-+-------------------+      +----------------------+      +---------------------------+
-         |                          ^                              ^
-         |                          |                              |
-         +--------------------------+-----------> Terraform <-------+
-                                    (Define y Gestiona Todo)
-```
 
-### Características Clave
+### Flujo de Datos
 
-*   **Infraestructura como Código:** Toda la infraestructura está definida en Terraform, garantizando consistencia, repetibilidad y control de versiones.
-*   **CI/CD Automatizado:** Un pipeline por microservicio que se activa con cada `push` a la rama de desarrollo.
-*   **Arquitectura Escalable:** Añadir un nuevo microservicio es tan simple como añadir unas pocas líneas de configuración en Terraform.
-*   **Lambdas en Contenedores:** Las funciones Lambda se empaquetan como imágenes Docker, permitiendo entornos de ejecución personalizados y dependencias complejas.
-*   **Aislamiento de Entornos:** Clara separación entre recursos `globales` (compartidos) y recursos de `entorno` (dev, prod).
+1. **Usuario** accede a `https://digicodex.click`
+2. **Route53** resuelve el dominio
+3. **Amplify** sirve la aplicación React
+4. **React** hace llamadas a la API Gateway
+5. **API Gateway** enruta a las funciones Lambda
+6. **Lambda** procesa y devuelve respuestas
 
 ## 🛠️ Stack Tecnológico
 
-*   **Cloud Provider:** Amazon Web Services (AWS)
-*   **Infraestructura como Código:** Terraform (v1.0+)
-*   **CI/CD:** AWS CodePipeline, AWS CodeBuild, AWS CodeStar Connections
-*   **Computación:** AWS Lambda (con imágenes Docker)
-*   **Contenedores:** Docker, Amazon ECR
-*   **API:** Amazon API Gateway
-*   **Lenguaje de la App:** Python 3.11
+### Backend
+- **Compute**: AWS Lambda (Container Images)
+- **API**: AWS API Gateway REST
+- **Container Registry**: Amazon ECR
+- **Runtime**: Python 3.11
+- **IaC**: Terraform 1.0+
 
-## 📁 Estructura del Directorio
+### Frontend
+- **Hosting**: AWS Amplify
+- **Framework**: React + Vite
+- **Routing**: React Router
+- **Styling**: Tailwind CSS (opcional)
+
+### CI/CD
+- **Source Control**: GitHub
+- **Pipelines**: AWS CodePipeline
+- **Build**: AWS CodeBuild
+- **Connection**: AWS CodeStar Connections
+
+### Dominio y SSL
+- **DNS**: Route53
+- **SSL**: AWS Certificate Manager
+- **CDN**: CloudFront (via Amplify)
+
+## 📁 Estructura del Proyecto
 
 ```
-.
-├── backend/                  # Código fuente de las funciones Lambda
-│   └── lambdas/
-│       └── lambda_.../       # Cada microservicio tiene su propia carpeta
-├── infra/                    # Código de Terraform (IaC)
-│   ├── global/               # Recursos globales (ej: ECR)
-│   ├── environments/         # Configuraciones por entorno (dev, prod)
-│   │   └── dev/
-│   └── modules/              # Módulos de Terraform reutilizables
-└── README.md
+personal-infra-main/
+├── 📁 environments/           # Configuraciones por ambiente
+│   └── 📁 dev/               # Ambiente de desarrollo
+│       ├── 🏗️ main.tf        # Recursos principales
+│       ├── 🏗️ amplify.tf     # Configuración del frontend
+│       ├── 🏗️ lambdas.tf     # Definición de microservicios
+│       ├── 🏗️ variables.tf   # Variables del ambiente
+│       ├── 🏗️ outputs.tf     # Outputs útiles
+│       └── ⚙️ buildspec.yml   # Build spec para lambdas
+├── 📁 global/                 # Recursos compartidos
+│   └── 📁 ecr/               # Repositorios de contenedores
+├── 📁 modules/                # Módulos reutilizables
+│   ├── 📁 amplify/           # Frontend hosting
+│   ├── 📁 api_gateway/       # API REST
+│   ├── 📁 ecr/               # Container registry
+│   ├── 📁 lambda/            # Funciones serverless
+│   ├── 📁 lambda_service/    # Lambda + Pipeline
+│   └── 📁 pipeline/          # CI/CD
+└── 📖 README.md              # Este archivo
 ```
 
-## 🚀 Guía de Inicio y Despliegue
+## 📋 Prerrequisitos
 
-Sigue estos pasos para desplegar la infraestructura completa desde cero.
+### Software Requerido
 
-### Prerrequisitos
+1. **AWS CLI** v2.0+ ([Instalación](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html))
+   ```bash
+   aws --version
+   ```
 
-Asegúrate de tener lo siguiente antes de empezar:
+2. **Terraform** v1.0+ ([Instalación](https://learn.hashicorp.com/tutorials/terraform/install-cli))
+   ```bash
+   terraform --version
+   ```
 
-1.  Una **Cuenta de AWS** activa.
-2.  **AWS CLI** [instalado y configurado](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html) con credenciales de administrador.
-3.  **Terraform CLI** (v1.0 o superior) [instalado](https://learn.hashicorp.com/tutorials/terraform/install-cli).
-4.  **Docker Desktop** [instalado y en ejecución](https://www.docker.com/products/docker-desktop/).
-5.  Una **Conexión de AWS CodeStar a GitHub** para que CodePipeline pueda acceder a los repositorios. [Sigue estas instrucciones](https://docs.aws.amazon.com/codepipeline/latest/userguide/connections-create-github.html).
+3. **Docker Desktop** ([Instalación](https://www.docker.com/products/docker-desktop/))
+   ```bash
+   docker --version
+   ```
 
-### Paso 1: Configurar el Backend de Terraform
+4. **Git** ([Instalación](https://git-scm.com/downloads))
+   ```bash
+   git --version
+   ```
 
-Terraform necesita un lugar para almacenar su estado de forma remota y segura.
+### Cuenta AWS
+
+- Cuenta AWS activa con permisos de administrador
+- Límites de servicio adecuados para Lambda, ECR, etc.
+
+### GitHub
+
+- Cuenta de GitHub
+- Repositorios creados:
+  - `personal-infra-main` (este repo)
+  - `personal-app-frontend` (código del frontend)
+  - `lambda_personal-app_get-journal-data` (código de lambda)
+
+## 🚀 Guía de Instalación
+
+### Paso 1: Clonar el Repositorio
 
 ```bash
-# Nota: Los nombres de los buckets S3 son únicos a nivel mundial.
-# Si el siguiente comando falla, reemplaza 'tf-state-personal-infra-main' por otro nombre único.
-# La región 'eu-west-1' es consistente con la configuración del backend de Terraform.
+git clone https://github.com/iTorrente99/personal-infra-main.git
+cd personal-infra-main
+```
 
-# Crear el bucket S3 para el estado de Terraform
+### Paso 2: Configurar AWS CLI
+
+```bash
+aws configure
+# AWS Access Key ID: [tu-access-key]
+# AWS Secret Access Key: [tu-secret-key]
+# Default region name: eu-west-1
+# Default output format: json
+```
+
+### Paso 3: Crear Backend de Terraform
+
+```bash
+# Crear bucket S3 para el estado
 aws s3 mb s3://tf-state-personal-infra-main --region eu-west-1
 
-# Crear la tabla DynamoDB para el bloqueo de estado
+# Crear tabla DynamoDB para locks
 aws dynamodb create-table \
     --table-name terraform-state-lock \
     --attribute-definitions AttributeName=LockID,AttributeType=S \
@@ -103,87 +204,316 @@ aws dynamodb create-table \
     --region eu-west-1
 ```
 
-### Paso 2: Desplegar Recursos Globales (ECR)
+### Paso 4: Crear Conexión con GitHub
 
-Estos recursos se crean una sola vez y son compartidos por todos los entornos.
+1. Ve a [AWS CodePipeline Console](https://console.aws.amazon.com/codesuite/settings/connections)
+2. Click "Create connection"
+3. Selecciona "GitHub"
+4. Autoriza AWS
+5. Copia el ARN de la conexión
 
-```bash
-# 1. Navega al directorio de recursos ECR globales
-cd infra/personal-infra-main/global/ecr
-
-# 2. Inicializa Terraform
-terraform init
-
-# 3. Revisa y aplica los cambios
-terraform plan
-terraform apply --auto-approve
-```
-
-### Paso 3: Desplegar el Entorno de Desarrollo
-
-Esto creará las Lambdas, Pipelines y el API Gateway para el entorno `dev`.
+### Paso 5: Desplegar Recursos Globales
 
 ```bash
-# 1. Navega al directorio del entorno
-cd infra/personal-infra-main/environments/dev
-
-# 2. (Recomendado) Crea un archivo 'terraform.tfvars' para tus variables locales.
-#    Este archivo no debe ser subido al control de versiones (¡añádelo a .gitignore!).
-#    Contendrá valores sensibles o específicos de tu entorno.
-echo 'github_connection_arn = "arn:aws:codeconnections:eu-west-1:123456789012:connection/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"' > terraform.tfvars
-echo "terraform.tfvars" >> .gitignore
-
-# 3. Edita terraform.tfvars y reemplaza el ARN con el de tu conexión CodeStar real.
-
-# 4. Inicializa Terraform
+cd global/ecr
 terraform init
-
-# 5. Revisa y aplica los cambios
 terraform plan
-terraform apply --auto-approve
+terraform apply -auto-approve
+cd ../..
 ```
 
-### Paso 4: Realizar el Primer Despliegue del Código
+### Paso 6: Configurar Variables de Entorno
 
-La infraestructura está lista. Sin embargo, la función Lambda se ha creado con una imagen de placeholder. Para desplegar el código real, simplemente haz tu primer `push` a la rama `dev` del repositorio de la Lambda (`iTorrente99/lambda_personal-app_get-journal-data`). Esto activará el pipeline y completará el ciclo.
+```bash
+cd environments/dev
+cp terraform.tfvars.example terraform.tfvars
+```
 
-## 💡 Flujo de Trabajo del Desarrollador: Añadir un Nuevo Microservicio
+Edita `terraform.tfvars`:
+```hcl
+github_connection_arn = "arn:aws:codeconnections:eu-west-1:XXXX:connection/YYYY"
+frontend_github_repository = "https://github.com/TU_USUARIO/personal-app-frontend"
+frontend_branch_name = "main"
+frontend_basic_auth_password = "contraseña-segura-123"
+frontend_custom_domain = "tudominio.com"  # Opcional
+```
 
-La arquitectura brilla por su facilidad para escalar. Sigue estos pasos para añadir un nuevo servicio:
+### Paso 7: Desplegar Infraestructura
 
-1.  **Crea el Código:** Añade una nueva carpeta en `backend/lambdas/` para tu nuevo microservicio, incluyendo su `lambda_function.py`, `Dockerfile`, etc.
-2.  **Crea un Repositorio en GitHub:** Crea un nuevo repositorio para alojar el código de este microservicio.
-3.  **Declara el Servicio en Terraform:** Abre `infra/personal-infra-main/environments/dev/lambdas.tf` y añade una nueva entrada al mapa `lambdas_config`:
+```bash
+terraform init
+terraform plan
+terraform apply
+```
 
-    ```terraform
-    # infra/personal-infra-main/environments/dev/lambdas.tf
+### Paso 8: Conectar Amplify con GitHub
 
-    locals {
-      lambdas_config = {
-        # ... (servicios existentes)
+1. Ve a [AWS Amplify Console](https://console.aws.amazon.com/amplify/)
+2. Selecciona tu app
+3. Click "Connect repository"
+4. Autoriza GitHub y selecciona tu repo
 
-        # --- NUEVO SERVICIO AÑADIDO AQUÍ ---
-        "process-payment" = {
-          base_name   = "lambda_personal-app_process-payment"
-          github_repo = "tu-usuario/lambda_personal-app_process-payment"
-          timeout     = 30
-          memory_size = 512
-        }
-      }
-    }
-    ```
+### Paso 9: Verificar Despliegue
 
-4.  **Aplica los Cambios:** Desde `infra/personal-infra-main/environments/dev`, ejecuta `terraform apply`.
-5.  **Despliega el Código:** Haz un `git push` a la rama `dev` del nuevo repositorio. El pipeline recién creado se activará y desplegará tu código.
+```bash
+# Ver URLs de acceso
+terraform output application_urls
 
-## 🔮 Hoja de Ruta y Mejoras Futuras
+# Probar API
+curl $(terraform output -raw api_invoke_url)/get-journal-data
+```
 
--   [ ] **Seguridad de IAM:** Refinar las políticas de IAM en los módulos (especialmente `codebuild_policy`) para seguir el principio de mínimo privilegio.
--   [ ] **Pruebas Automatizadas:** Integrar etapas de `test` en `buildspec.yml` para ejecutar pruebas unitarias (`pytest`) y de `linting` (`flake8`).
--   [ ] **Gestión de Secretos:** Integrar **AWS Secrets Manager** para manejar credenciales de forma segura.
--   [ ] **Entorno de Producción:** Crear una nueva configuración en `environments/prod` que apunte a la rama `main` y utilice el repositorio ECR de `releases`.
--   [ ] **CORS Configurable:** Parameterizar la cabecera `Access-Control-Allow-Origin` en las Lambdas para que se pueda configurar por entorno.
+## 💻 Uso
 
-## 📄 Licencia
+### Acceder a la Aplicación
 
-Este proyecto está bajo la Licencia MIT. Consulta el archivo `LICENSE` para más detalles.
+- **Desarrollo**: https://main.dXXXXX.amplifyapp.com
+  - Usuario: `admin`
+  - Contraseña: (la que configuraste)
+- **Producción**: https://tudominio.com
+
+### Endpoints de API
+
+```bash
+# Obtener datos del journal
+GET https://api.tudominio.com/dev/get-journal-data
+
+# Futuro: Crear entrada
+POST https://api.tudominio.com/dev/journal-entry
+```
+
+### Comandos Útiles
+
+```bash
+# Ver estado de la infraestructura
+terraform show
+
+# Actualizar cambios
+terraform apply
+
+# Destruir recursos (¡CUIDADO!)
+terraform destroy
+
+# Ver logs de Lambda
+aws logs tail /aws/lambda/lambda_personal-app_get-journal-data_dev --follow
+```
+
+## 🌐 Configuración del Dominio
+
+### Con Route53 (Recomendado)
+
+1. Compra el dominio en Route53
+2. Configura en `terraform.tfvars`:
+   ```hcl
+   frontend_custom_domain = "tudominio.com"
+   ```
+3. Aplica cambios:
+   ```bash
+   terraform apply
+   ```
+4. Amplify configura todo automáticamente
+
+### Con Otro Proveedor
+
+1. Obtén los registros DNS:
+   ```bash
+   terraform output frontend_dns_verification
+   ```
+2. Añade los registros CNAME en tu proveedor
+3. Espera propagación (hasta 48h)
+
+## 👨‍💻 Desarrollo
+
+### Añadir un Nuevo Microservicio
+
+1. **Crear repositorio** en GitHub:
+   ```
+   lambda_personal-app_nuevo-servicio
+   ```
+
+2. **Añadir a `lambdas.tf`**:
+   ```hcl
+   locals {
+     lambdas_config = {
+       # Existentes...
+       
+       "nuevo-servicio" = {
+         base_name   = "lambda_personal-app_nuevo-servicio"
+         github_repo = "iTorrente99/lambda_personal-app_nuevo-servicio"
+         timeout     = 30
+         memory_size = 512
+       }
+     }
+   }
+   ```
+
+3. **Aplicar cambios**:
+   ```bash
+   terraform apply
+   ```
+
+4. **Push código** al nuevo repo
+
+### Estructura de una Lambda
+
+```
+lambda_personal-app_nuevo-servicio/
+├── lambda_function.py    # Código principal
+├── requirements.txt      # Dependencias Python
+├── Dockerfile           # Imagen del contenedor
+└── config.toml         # Configuración y versión
+```
+
+### Variables de Entorno
+
+Las Lambdas reciben automáticamente:
+- `ENVIRONMENT`: dev/pre/pro
+- `REGION`: eu-west-1
+- Variables personalizadas que definas
+
+## 🔄 CI/CD
+
+### Pipeline Automático
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant GH as GitHub
+    participant CP as CodePipeline
+    participant CB as CodeBuild
+    participant ECR as ECR
+    participant Lambda as Lambda
+    
+    Dev->>GH: git push
+    GH->>CP: Webhook trigger
+    CP->>CB: Start build
+    CB->>CB: Docker build
+    CB->>ECR: Push image
+    CB->>Lambda: Update function
+    Lambda-->>Dev: ✅ Deployed
+```
+
+### Monitorear Builds
+
+- **CodePipeline**: [Console](https://console.aws.amazon.com/codesuite/codepipeline/pipelines)
+- **CodeBuild**: Ver logs detallados
+- **Amplify**: [Console](https://console.aws.amazon.com/amplify/)
+
+## 📊 Monitoreo y Logs
+
+### CloudWatch Logs
+
+```bash
+# Ver logs de Lambda
+aws logs tail /aws/lambda/FUNCTION_NAME --follow
+
+# Buscar errores
+aws logs filter-log-events \
+  --log-group-name /aws/lambda/FUNCTION_NAME \
+  --filter-pattern ERROR
+```
+
+### Métricas
+
+- **Lambda**: Invocaciones, errores, duración
+- **API Gateway**: Requests, latencia, errores 4XX/5XX
+- **Amplify**: Builds, deploys, tráfico
+
+### Alarmas (Próximamente)
+
+```hcl
+# Ejemplo de alarma para errores
+resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
+  alarm_name          = "lambda-errors-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "Errors"
+  namespace           = "AWS/Lambda"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "10"
+}
+```
+
+## 🐛 Troubleshooting
+
+### Errores Comunes
+
+#### "You should at least provide one valid token"
+```bash
+# Conecta GitHub manualmente en Amplify Console
+```
+
+#### "Illegal base64 character"
+```bash
+# Importa el branch existente
+terraform import module.amplify_frontend.aws_amplify_branch.main[0] APP_ID/BRANCH
+```
+
+#### Lambda no responde
+```bash
+# Verificar logs
+aws logs tail /aws/lambda/FUNCTION_NAME --follow
+
+# Verificar permisos IAM
+aws lambda get-function --function-name FUNCTION_NAME
+```
+
+#### Dominio no funciona
+1. Verifica registros DNS
+2. Espera propagación (hasta 48h)
+3. Verifica estado en Amplify Console
+
+### Comandos de Diagnóstico
+
+```bash
+# Estado de Terraform
+terraform state list
+terraform state show MODULE.RESOURCE
+
+# Forzar refresh
+terraform refresh
+
+# Recrear recurso específico
+terraform apply -replace="module.lambda_service[\"get-journal-data\"]"
+```
+
+## 📚 Mejores Prácticas
+
+### Seguridad
+
+1. **Nunca** commits credenciales
+2. Usa `terraform.tfvars` (está en .gitignore)
+3. Principio de menor privilegio en IAM
+4. Habilita MFA en tu cuenta AWS
+
+### Costos
+
+1. Configura alarmas de billing
+2. Usa lifecycle policies en ECR
+3. Monitorea invocaciones de Lambda
+4. Revisa regularmente recursos no utilizados
+
+### Código
+
+1. Usa tags consistentes
+2. Versiona tus Lambdas (config.toml)
+3. Documenta cambios importantes
+4. Test localmente antes de push
+
+### Terraform
+
+1. Siempre `terraform plan` antes de `apply`
+2. Usa workspaces para múltiples entornos
+3. Mantén módulos pequeños y reutilizables
+4. Versiona el estado en S3
+
+---
+
+<div align="center">
+  
+**[⬆ Volver arriba](#-personal-app---infraestructura-como-código)**
+
+Hecho con ❤️ por [iTorrente99](https://github.com/iTorrente99)
+
+</div>
