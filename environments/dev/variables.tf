@@ -22,13 +22,16 @@ variable "environment" {
 variable "github_connection_arn" {
   description = "ARN de la conexión de GitHub/CodeStar"
   type        = string
-  default     = "arn:aws:codeconnections:eu-west-1:590184031333:connection/4a1b0335-5d89-4d95-82fa-926515d75a62"
 }
 
-variable "github_repository" {
+variable "infra_repository" {
+  description = "Repositorio de GitHub de infra"
+  type = string
+}
+
+variable "github_repository_lambda_get_journal_data" {
   description = "Repositorio de GitHub (formato: owner/repo)"
   type        = string
-  default     = "iTorrente99/lambda_personal-app_get-journal-data"
 }
 
 variable "github_branch" {
@@ -54,19 +57,18 @@ variable "lambda_memory_size" {
 variable "frontend_github_repository" {
   description = "URL del repositorio de GitHub del frontend"
   type        = string
-  default     = "https://github.com/iTorrente99/personal-app-frontend"
 }
 
 variable "frontend_branch_name" {
   description = "Branch del frontend a desplegar"
   type        = string
-  default     = "master"
+  default     = "main"
 }
 
 variable "frontend_custom_domain" {
   description = "Dominio personalizado para el frontend (opcional)"
   type        = string
-  default     = null # Cambia a "tudominio.com" cuando lo tengas
+  default     = null
 }
 
 variable "frontend_framework" {
@@ -84,5 +86,4 @@ variable "frontend_basic_auth_password" {
   description = "Contraseña para autenticación básica en entorno dev"
   type        = string
   sensitive   = true
-  default     = "changeme123!" # Cambia esto en terraform.tfvars
 }

@@ -2,32 +2,34 @@
 
 # Bucle que crea la Lambda y su Pipeline para cada entrada en lambdas_config
 module "lambda_service" {
-  for_each = local.lambdas_config # ¡La magia está aquí!
+  for_each = local.lambdas_config
 
-  source = "../../modules/lambda_service" # Crearemos este nuevo módulo en el siguiente paso
+  source = "../../modules/lambda_service"
 
   # Parámetros generales del entorno
   environment           = var.environment
   github_connection_arn = var.github_connection_arn
-  github_branch         = var.github_branch # Asumimos que la rama es la misma para todas las lambdas del entorno
-  common_tags           = local.common_tags
+  github_branch         = var.github_branch
   ecr_snapshots_url     = local.ecr_snapshots_url
   ecr_snapshots_name    = data.terraform_remote_state.global_ecr.outputs.snapshots_repository_name
+  common_tags           = merge(local.common_tags, {
+    Repository = each.value.github_repo
+  })
 
   # Parámetros específicos de cada lambda, leídos del bucle
-  function_base_name    = each.value.base_name
-  github_repository     = each.value.github_repo
-  
+  function_base_name = each.value.base_name
+  github_repository  = each.value.github_repo
+
   # Usar valores específicos si existen, si no, los defaults del entorno
-  lambda_timeout        = lookup(each.value, "timeout", var.lambda_timeout)
-  lambda_memory_size    = lookup(each.value, "memory_size", var.lambda_memory_size)
+  lambda_timeout     = lookup(each.value, "timeout", var.lambda_timeout)
+  lambda_memory_size = lookup(each.value, "memory_size", var.lambda_memory_size)
 }
 
 module "api_gateway" {
   source = "../../modules/api_gateway"
 
-  api_name    = "${var.project_name}-api" # ej: personal-app-api
-  environment = var.environment          # ej: dev
+  api_name    = "${var.project_name}-api"
+  environment = var.environment
   common_tags = local.common_tags
 
   # Construimos el mapa de integraciones dinámicamente a partir de nuestras lambdas

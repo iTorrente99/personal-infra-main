@@ -339,7 +339,7 @@ aws logs tail /aws/lambda/lambda_personal-app_get-journal-data_dev --follow
        
        "nuevo-servicio" = {
          base_name   = "lambda_personal-app_nuevo-servicio"
-         github_repo = "iTorrente99/lambda_personal-app_nuevo-servicio"
+         github_repo = var.github_repository_lambda_nuevo_servicio
          timeout     = 30
          memory_size = 512
        }

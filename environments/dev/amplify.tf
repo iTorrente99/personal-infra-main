@@ -28,7 +28,7 @@ module "amplify_frontend" {
 
   # Configuración básica
   app_name            = "${var.project_name}-frontend-${var.environment}"
-  github_repository   = "https://github.com/iTorrente99/personal-app-frontend"
+  github_repository   = var.frontend_github_repository
   github_access_token = "" # Vacío temporalmente
   branch_name         = var.frontend_branch_name
   stage               = var.environment == "dev" ? "DEVELOPMENT" : "PRODUCTION"
@@ -59,8 +59,9 @@ module "amplify_frontend" {
   common_tags = merge(
     local.common_tags,
     {
-      Component = "Frontend"
-      Framework = var.frontend_framework
+      Component  = "Frontend"
+      Framework  = var.frontend_framework
+      Repository = var.frontend_github_repository
     }
   )
 }
